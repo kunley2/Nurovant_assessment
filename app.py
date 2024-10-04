@@ -2,10 +2,10 @@ from flask import Flask, request, jsonify
 import os
 import uuid
 import sqlite3
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.document_loaders import TextLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain.chains import ConversationalRetrievalChain
 import faiss
 from src.helper import answer_query, evaluate_answer
@@ -36,15 +36,19 @@ def upload_document():
     if not file:
         return jsonify({'error': 'No file provided.'}), 400
 
-    content = file.read().decode('utf-8')
+    # file.save(file.filename)
+    data = file.read().decode('utf-8', errors='ignore')
+    # loader = PyPDFLoader(file.filename)
+    # data = loader.load()
+    # print('content',data)
 
     # Split the document into chunks
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    texts = text_splitter.split_text(content)
+    texts = text_splitter.split_text(data)
 
     # Create embeddings and build vectorstore
     embeddings = HuggingFaceEmbeddings()
-    index = faiss.IndexFlatL2(len(embeddings.embed_query("hello world")))
+    # index = faiss.IndexFlatL2(len(embeddings.embed_query("hello world")))
     global vectorstore
     vectorstore = FAISS.from_documents(
         documents=texts,
@@ -83,6 +87,21 @@ def query():
 def evaluate():
     user_answer = request.json['user_answer']
     test_question_id = request.json['test_question_id']
+
+    cursor.execute('SELECT test_answer FROM test_question WHERE id=?', (test_question_id,))
+    row = cursor.fetchone()
+
+    if row is None:
+        return jsonify({'error': 'Test question not found.'}), 404
+
+    question = row[0]
+
+    knowledge, confidence = evaluate_answer(question, user_answer, vectorstore)
+    response = {
+        "knowledge_understood": knowledge,
+        "knowledge_confidence": confidence
+    }
+    return jsonify(response)
 
 
 

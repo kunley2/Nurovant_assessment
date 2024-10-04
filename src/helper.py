@@ -2,7 +2,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, pipeline
 import re
 from langchain.prompts import PromptTemplate
-from langchain.memory import ChatMessageHistory,ConversationSummaryMemory # ConversationSummaryMemory for creating the summary
+from langchain.memory import ChatMessageHistory,ConversationSummaryMemory
 from langchain_core.runnables import RunnableLambda
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -22,7 +22,7 @@ from langchain_community.vectorstores import FAISS
 
 
 model_id = "kunley2/Llama-3.2-3B-Instruct"
-quantization_config = BitsAndBytesConfig(load_in_4bit=True,  bnb_4bit_quant_type="fp4", bnb_4bit_compute_dtype=torch.bfloat16)
+quantization_config = BitsAndBytesConfig(load_in_4bit=True,  bnb_4bit_quant_type="fp4", bnb_4bit_compute_dtype=torch.float16)
 tokenizer = AutoTokenizer.from_pretrained(model_id, add_eos_token=True)
 model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", quantization_config=quantization_config)
 
@@ -30,7 +30,7 @@ pipe = pipeline(
     "text-generation",
     model=model,
     tokenizer=tokenizer,
-    model_kwargs={"torch_dtype": torch.bfloat16},
+    model_kwargs={"torch_dtype": torch.float16},
     device_map="auto",
     max_new_tokens=512,
     return_full_text=False,
@@ -119,10 +119,9 @@ def evaluate_answer(question:str, answer:str, vector_store) -> dict:
     """This function is used to evaluate the understanding of a user to a particular question"""
 
     evaluate_template = """
-    Given the question and answer received from a user, use the context to determine if the user answers the question correctly.
-    Ensure your output is a boolean with True meaning the answers is correct and they understood the topic.
-    Make sure you think properly and output only a boolean value, think properly.
-    only output either its true or False
+    You are given a question and answer and required to use the context to determine if the user understands the topic by writing either True or Force.
+    you are to give a one word output either its True or False, True meaning he understands the topic and False meaning he doesnt understand the topic.\n\n
+    Ensure you only give a one word output
 
     Question:
     {question}
@@ -138,8 +137,8 @@ def evaluate_answer(question:str, answer:str, vector_store) -> dict:
     evaluation_chain = evaluation_prompt_template | llm | StrOutputParser()
 
     confidence_template = """
-    Given the question and answer received from a user, use the context to determine if the user answers the question correctly.
-    You are to score the user in percentage on how well they understand the topic. Ensure you only output the score and think properly before allocating a score.
+    You are given a question and answer and required to use the context to determine if the user answers the question correctly by rating the user on a scale of 1 - 100, 100 meaning he knows the topic well.\n\n
+    Ensure you only give a only the rating
 
     Question:
     {question}
@@ -166,4 +165,4 @@ def evaluate_answer(question:str, answer:str, vector_store) -> dict:
             )
     )
     response = chain.invoke({"question":question,"answer":answer})
-    return response["knowledge"], response['confidence']
+    return response["knowledge"].split('\n')[0], response['confidence'].split('\n')[0]
