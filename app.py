@@ -12,9 +12,6 @@ from src.helper import answer_query, evaluate_answer
 
 app = Flask(__name__)
 
-# Set your OpenAI API key
-os.environ["OPENAI_API_KEY"] = 'your-openai-api-key'
-
 # Initialize global variables
 vectorstore = None
 chat_history = []

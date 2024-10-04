@@ -21,7 +21,7 @@ from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain_community.vectorstores import FAISS
 
 
-model_id = "meta-llama/Llama-3.2-3B-Instruct"
+model_id = "kunley2/Llama-3.2-3B-Instruct"
 quantization_config = BitsAndBytesConfig(load_in_4bit=True,  bnb_4bit_quant_type="fp4", bnb_4bit_compute_dtype=torch.bfloat16)
 tokenizer = AutoTokenizer.from_pretrained(model_id, add_eos_token=True)
 model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", quantization_config=quantization_config)
