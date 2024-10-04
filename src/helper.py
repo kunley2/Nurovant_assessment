@@ -54,7 +54,7 @@ def answer_query(vector_store, input:str) -> dict:
 
     Question:
     {question}
-
+    output only the answer that relates to the question
     """
     answer_template = PromptTemplate(
         template=template, input_variables=["question"],
@@ -73,7 +73,7 @@ def answer_query(vector_store, input:str) -> dict:
     context: {context}
 
     answer: {answer}
-
+    Output only the question you want to ask the user
     """
     question_template = PromptTemplate(
         template=template2, input_variables=["context","question","answer"],
@@ -92,7 +92,7 @@ def answer_query(vector_store, input:str) -> dict:
     context: {context}
 
     answer: {answer}
-
+    Give your bullet point in a comma separated list
     """
     bullet_template = PromptTemplate(
         template=bullet_point, input_variables=["context","question","answer"],
@@ -121,7 +121,7 @@ def evaluate_answer(question:str, answer:str, vector_store) -> dict:
     evaluate_template = """
     You are given a question and answer and required to use the context to determine if the user understands the topic by writing either True or Force.
     you are to give a one word output either its True or False, True meaning he understands the topic and False meaning he doesnt understand the topic.\n\n
-    Ensure you only give a one word output
+    Ensure you only give your output either its True or False after evaluating the answer
 
     Question:
     {question}
@@ -165,4 +165,4 @@ def evaluate_answer(question:str, answer:str, vector_store) -> dict:
             )
     )
     response = chain.invoke({"question":question,"answer":answer})
-    return response["knowledge"].split('\n')[0], response['confidence'].split('\n')[0]
+    return response["knowledge"].split('\n\n')[0], response['confidence'].split('\n\n')[0]

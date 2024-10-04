@@ -37,10 +37,10 @@ def upload_document():
         return jsonify({'error': 'No file provided.'}), 400
 
     # file.save(file.filename)
-    data = file.read().decode('utf-8', errors='ignore')
-    # loader = PyPDFLoader(file.filename)
-    # data = loader.load()
-    # print('content',data)
+    # data = file.read().decode('utf-8', errors='ignore')
+    loader = PyPDFLoader(file.filename)
+    data = loader.load()
+    print('content',data)
 
     # Split the document into chunks
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
