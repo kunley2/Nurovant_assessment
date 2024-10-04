@@ -32,16 +32,16 @@ pipe = pipeline(
     tokenizer=tokenizer,
     model_kwargs={"torch_dtype": torch.bfloat16},
     device_map="auto",
-    max_new_tokens=4048,
+    max_new_tokens=512,
     return_full_text=False,
-    # num_return_sequences=1,
-    eos_token_id=tokenizer.eos_token_id
+    num_return_sequences=1,
+    # eos_token_id=tokenizer.eos_token_id
 )
 
 llm = HuggingFacePipeline(
   pipeline=pipe,
-  model_kwargs={"temperature": 0.3, "max_new_tokens": 2024},
-  pipeline_kwargs={"repetition_penalty":1.1}
+  model_kwargs={"temperature": 0.3},
+  pipeline_kwargs={"repetition_penalty":1.2}
 )
 
 def answer_query(vector_store, input:str) -> dict:
@@ -115,6 +115,55 @@ def answer_query(vector_store, input:str) -> dict:
     return response["answer"], response['second_question'], response['bullet']
 
 
-def evaluate_answer(question:str, answer:str) -> dict:
+def evaluate_answer(question:str, answer:str, vector_store) -> dict:
     """This function is used to evaluate the understanding of a user to a particular question"""
-    pass
+
+    evaluate_template = """
+    Given the question and answer received from a user, use the context to determine if the user answers the question correctly.
+    Ensure your output is a boolean with True meaning the answers is correct and they understood the topic.
+    Make sure you think properly and output only a boolean value, think properly.
+    only output either its true or False
+
+    Question:
+    {question}
+
+    context: {context}
+
+    answer: {answer}
+
+    """
+    evaluation_prompt_template = PromptTemplate(
+        template=evaluate_template, input_variables=["context","question","answer"],
+    )
+    evaluation_chain = evaluation_prompt_template | llm | StrOutputParser()
+
+    confidence_template = """
+    Given the question and answer received from a user, use the context to determine if the user answers the question correctly.
+    You are to score the user in percentage on how well they understand the topic. Ensure you only output the score and think properly before allocating a score.
+
+    Question:
+    {question}
+
+    context: {context}
+
+    answer: {answer}
+
+    """
+    confidence_prompt_template = PromptTemplate(
+        template=confidence_template, input_variables=["context","question","answer"],
+    )
+    confidence_chain = confidence_prompt_template | llm | StrOutputParser()
+
+    retriever = vector_store.as_retriever(search_type="mmr", search_kwargs={"k": 4})
+
+    chain =  ({
+        "context": itemgetter("question") | retriever,
+        "question":itemgetter("question"),
+        "answer":itemgetter("answer"),
+        } |  RunnablePassthrough.assign(
+            knowledge=evaluation_chain,
+            confidence=confidence_chain,
+            )
+    )
+    response = chain.invoke({"question":question,"answer":answer})
+    return response["knowledge"], response['confidence']

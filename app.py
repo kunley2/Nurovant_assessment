@@ -8,7 +8,7 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.document_loaders import TextLoader
 from langchain.chains import ConversationalRetrievalChain
 import faiss
-from src.helper import answer_query
+from src.helper import answer_query, evaluate_answer
 
 app = Flask(__name__)
 
@@ -55,3 +55,42 @@ def upload_document():
     )
 
     return jsonify({'message': 'Document uploaded and processed successfully.'}), 200
+
+
+@app.route('/query/', methods=['POST'])
+def query():
+    if vectorstore is None:
+        return jsonify({'error': 'No file provided.'}), 400
+    question = request.json['question']
+    answer, test_question, bullet_points = answer_query(input=question,vector_store=vectorstore)
+    test_question_id = str(uuid.uuid4())
+
+    # Store test question and answer in the database
+    test_answer = answer  # For simplicity, you can generate a different test answer
+    cursor.execute(
+        '''
+        INSERT INTO test_answers (id, test_question, test_answer) VALUES (?, ?, ?)
+        ''', (test_question_id, test_question, test_answer)
+    )
+    conn.commit()
+
+    response = {
+        "answer": answer,
+        "bullet_points": bullet_points,
+        "test_question": test_question,
+        "test_question_id": test_question_id
+    }
+    return jsonify(response)
+
+@app.route('/evaluate/', methods=['POST'])
+def evaluate():
+    user_answer = request.json['user_answer']
+    test_question_id = request.json['test_question_id']
+
+
+
+
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
